@@ -1,8 +1,6 @@
-# Wideq
+# Wideq - A Ruby Gem for Interacting with LG SmartThinq Appliances
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/wideq`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+This is a Ruby port of the code and concepts found in [sampsyo's wideq Python module](https://github.com/sampsyo/wideq).
 
 ## Installation
 
@@ -22,7 +20,56 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+``` ruby
+## An example that lists available appliances
+
+require 'wideq'
+
+##
+# Interactively authenticate the user via a browser to get an OAuth session.
+def authenticate(gateway)
+  login_url = gateway.oauth_url
+  puts 'Log in here:'
+  puts login_url
+  puts 'Then paste the URL where the browser is redirected:'
+  callback_url = gets.chomp
+  WIDEQ::Auth.from_url gateway, callback_url
+end
+
+##
+# List the user's devices.
+def ls(client)
+  client.devices.each do |device|
+    puts "#{device.id}: \"#{device.name}\" (type #{device.type}, id #{device.model_id})"
+  end
+end
+
+STATE_FILE = 'wideq_state.json'.freeze
+
+begin
+  state = JSON.parse(File.read(STATE_FILE))
+rescue StandardError
+  state = {}
+end
+
+# puts WIDEQ::gateway_info
+
+client = WIDEQ::Client.load(state)
+# Log in, if we don't already have an authentication.
+client._auth = authenticate client.gateway unless client._auth
+
+begin
+  ls client
+rescue WIDEQ::NotLoggedInError
+  client.refresh
+end
+
+# Save the updated state.
+state = client.dump
+File.open(STATE_FILE, 'w') { |file| file.write state.to_json }
+
+# pp client
+```
 
 ## Development
 
@@ -32,7 +79,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/wideq.
+Bug reports and pull requests are welcome on GitHub at https://github.com/jeffkowalski/wideq.
 
 ## License
 

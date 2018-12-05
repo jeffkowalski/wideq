@@ -99,11 +99,10 @@ module WIDEQ
   # exist, return an empty list.
   def self.get_list(obj, key)
     val = obj[key]
-    if val.nil? || val.is_a?(Array)
-      return val
-    else
-      return [val]
-    end
+
+    return val if val.nil? || val.is_a?(Array)
+
+    [val]
   end
 
   ##
@@ -383,14 +382,13 @@ module WIDEQ
       raise MonitorError.new(device_id, code) if code != '0000'
       # The return data may or may not be present, depending on the
       # monitoring task status.
-      if res.key? 'returnData'
-        # The main response payload is base64-encoded binary data in
-        # the `returnData` field. This sometimes contains JSON data
-        # and sometimes other binary data.
-        return Base64.decode64(res['returnData'])
-      else
-        return nil
-      end
+
+      # The main response payload is base64-encoded binary data in
+      # the `returnData` field. This sometimes contains JSON data
+      # and sometimes other binary data.
+      return Base64.decode64(res['returnData']) if res.key? 'returnData'
+
+      nil
     end
 
     ##
@@ -700,10 +698,9 @@ module WIDEQ
         ReferenceValue.new @data[ref]
       elsif type.casecmp? 'boolean'
         $logger.debug "#{name} is a boolean"
-        EnumValue.new ({ 0 => 'False', 1 => 'True' })
+        EnumValue.new(0 => 'False', 1 => 'True')
       else
         $logger.warn "unsupported value type #{d['type']} for value #{name}"
-        #            assert KeyError, "unsupported value type {}".format(d['type'])
       end
     end
 
