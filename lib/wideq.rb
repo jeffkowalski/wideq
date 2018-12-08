@@ -378,7 +378,7 @@ module WIDEQ
       # Check for errors.
       $logger.debug res
       $logger.debug res.keys
-      code = res.key? 'returnCode' ? res['returnCode'] : nil # returnCode can be missing.
+      code = res.fetch('returnCode', nil) # returnCode can be missing.
       raise MonitorError.new(device_id, code) if code != '0000'
       # The return data may or may not be present, depending on the
       # monitoring task status.
@@ -546,13 +546,13 @@ module WIDEQ
       gateway = nil
       if state.key? 'gateway'
         data = state['gateway']
-        gateway = Gateway.new data['auth_base'], data['api_root'], data['oauth_root']
+        gateway = Gateway.new data[:auth_base], data[:api_root], data[:oauth_root]
       end
 
       auth = nil
       if state.key? 'auth'
         data = state['auth']
-        auth = Auth.new gateway, data['access_token'], data['refresh_token']
+        auth = Auth.new gateway, data[:access_token], data[:refresh_token]
       end
 
       session = nil
