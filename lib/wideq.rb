@@ -1,5 +1,6 @@
-require 'wideq/version'
+# frozen_string_literal: true
 
+require 'wideq/version'
 require 'rest-client'
 require 'json'
 require 'securerandom'
@@ -10,17 +11,17 @@ require 'addressable/template'
 $logger = Logger.new STDOUT if $logger.nil?
 
 module WIDEQ
-  GATEWAY_URL      = 'https://kic.lgthinq.com:46030/api/common/gatewayUriList'.freeze
-  APP_KEY          = 'wideq'.freeze
-  SECURITY_KEY     = 'nuts_securitykey'.freeze
-  DATA_ROOT        = 'lgedmRoot'.freeze
-  COUNTRY          = 'US'.freeze
-  LANGUAGE         = 'en-US'.freeze
-  SVC_CODE         = 'SVC202'.freeze
-  CLIENT_ID        = 'LGAO221A02'.freeze
-  OAUTH_SECRET_KEY = 'c053c2a6ddeb7ad97cb0eed0dcb31cf8'.freeze
-  OAUTH_CLIENT_KEY = 'LGAO221A02'.freeze
-  DATE_FORMAT      = '%a, %d %b %Y %H:%M:%S +0000'.freeze
+  GATEWAY_URL      = 'https://kic.lgthinq.com:46030/api/common/gatewayUriList'
+  APP_KEY          = 'wideq'
+  SECURITY_KEY     = 'nuts_securitykey'
+  DATA_ROOT        = 'lgedmRoot'
+  COUNTRY          = 'US'
+  LANGUAGE         = 'en-US'
+  SVC_CODE         = 'SVC202'
+  CLIENT_ID        = 'LGAO221A02'
+  OAUTH_SECRET_KEY = 'c053c2a6ddeb7ad97cb0eed0dcb31cf8'
+  OAUTH_CLIENT_KEY = 'LGAO221A02'
+  DATE_FORMAT      = '%a, %d %b %Y %H:%M:%S +0000'
 
   DEVICE_TYPE = {
     REFRIGERATOR: 101,
@@ -243,7 +244,7 @@ module WIDEQ
     # The signature for the requests is on a string consisting of two parts:
     #   (1) a fake request URL containing the refresh token, and
     #   (2) the timestamp
-    req_url = '/oauth2/token?' + data
+    req_url = "/oauth2/token?#{data}"
     sig = oauth2_signature "#{req_url}\n#{timestamp}", OAUTH_SECRET_KEY
 
     headers = {
@@ -275,6 +276,7 @@ module WIDEQ
 
   class Gateway
     attr_reader :auth_base, :api_root, :oauth_root
+
     def initialize(auth_base, api_root, oauth_root)
       @auth_base  = auth_base
       @api_root   = api_root
@@ -293,6 +295,7 @@ module WIDEQ
 
   class Auth
     attr_reader :gateway, :access_token, :refresh_token
+
     def initialize(gateway, access_token, refresh_token)
       @gateway       = gateway
       @access_token  = access_token
@@ -325,6 +328,7 @@ module WIDEQ
 
   class Session
     attr_reader :session_id
+
     def initialize(auth, session_id)
       @auth       = auth
       @session_id = session_id
@@ -338,7 +342,7 @@ module WIDEQ
     def post(path, data = nil)
       url = @auth.gateway.api_root
       url.chop if url[-1] == '/'
-      url += '/' + path
+      url += "/#{path}"
       WIDEQ.lgedm_post(url, data: data, access_token: @auth.access_token, session_id: @session_id)
     end
 
@@ -673,17 +677,16 @@ module WIDEQ
       raise KeyError if d.nil?
 
       type = d['type']
+      $logger.debug "#{name} is a #{type}"
     rescue KeyError
       $logger.warn "can't find type for #{name}"
     else
-      if type.casecmp? 'enum'
-        $logger.debug "#{name} is an enum"
+      case type.downcase
+      when 'enum'
         EnumValue.new d['option']
-      elsif type.casecmp? 'range'
-        $logger.debug "#{name} is a range"
+      when 'range'
         RangeValue.new d['option']['min'], d['option']['max'] # , d['option']['step']
-      elsif type.casecmp? 'bit'
-        $logger.debug "#{name} is a bit"
+      when 'bit'
         bit_values = {}
         d['option'].each do |bit|
           bit_values[bit['startbit']] = {
@@ -692,15 +695,13 @@ module WIDEQ
           }
         end
         BitValue.new bit_values
-      elsif type.casecmp? 'reference'
-        $logger.debug "#{name} is a reference"
+      when 'reference'
         ref = d['option'][0]
         ReferenceValue.new @data[ref]
-      elsif type.casecmp? 'boolean'
-        $logger.debug "#{name} is a boolean"
+      when 'boolean'
         EnumValue.new(0 => 'False', 1 => 'True')
       else
-        $logger.warn "unsupported value type #{d['type']} for value #{name}"
+        $logger.warn "unsupported value type #{type} for value #{name}"
       end
     end
 
