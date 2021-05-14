@@ -9,6 +9,7 @@ require 'addressable/uri'
 require 'addressable/template'
 
 $logger = Logger.new STDOUT if $logger.nil?
+$logger.level = Logger::INFO
 
 module WIDEQ
   GATEWAY_URL      = 'https://kic.lgthinq.com:46030/api/common/gatewayUriList'
