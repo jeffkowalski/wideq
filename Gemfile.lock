@@ -2,9 +2,9 @@ PATH
   remote: .
   specs:
     wideq (0.1.0)
-      addressable (~> 2.5)
-      json (~> 2.1)
-      rest-client (~> 2.0)
+      addressable
+      json
+      rest-client
 
 GEM
   remote: https://rubygems.org/
@@ -50,10 +50,10 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  bundler (~> 2.1.4)
-  rake (~> 10.0)
-  rspec (~> 3.0)
+  bundler
+  rake
+  rspec
   wideq!
 
 BUNDLED WITH
-   2.1.4
+   2.2.23
