@@ -8,21 +8,50 @@ require 'base64'
 require 'addressable/uri'
 require 'addressable/template'
 
-$logger = Logger.new STDOUT if $logger.nil?
+$logger = Logger.new $stdout if $logger.nil?
 $logger.level = Logger::INFO
 
 module WIDEQ
-  GATEWAY_URL      = 'https://kic.lgthinq.com:46030/api/common/gatewayUriList'
-  APP_KEY          = 'wideq'
-  SECURITY_KEY     = 'nuts_securitykey'
+  # v2
+  V2_API_KEY = 'VGhpblEyLjAgU0VSVklDRQ=='
+  V2_CLIENT_ID = '65260af7e8e6547b51fdccf930097c51eb9885a508d3fddfa9ee6cdec22ae1bd'
+  V2_SVC_PHASE = 'OP'
+  V2_APP_LEVEL = 'PRD'
+  V2_APP_OS = 'LINUX'
+  V2_APP_TYPE = 'NUTS'
+  V2_APP_VER = '3.0.1700'
+
+  # new
+  V2_GATEWAY_URL = 'https://route.lgthinq.com:46030/v1/service/application/gateway-uri'
+  V2_AUTH_PATH = '/oauth/1.0/oauth2/token'
+  V2_USER_INFO = '/users/profile'
+  V2_EMP_SESS_URL = 'https://emp-oauth.lgecloud.com/emp/oauth2/token/empsession'
+  OAUTH_LOGIN_HOST = 'us.m.lgaccount.com'
+  OAUTH_LOGIN_PATH = 'login/signIn'
+  OAUTH_REDIRECT_PATH = 'login/iabClose'
+  OAUTH_REDIRECT_URI = "https://kr.m.lgaccount.com/#{OAUTH_REDIRECT_PATH}"
+  APPLICATION_KEY = '6V1V8H2BN5P9ZQGOI5DAQ92YZBDO3EK9' # for spx login
+  OAUTH_CLIENT_KEY = 'LGAO722A02'
+  EMP_REDIRECT_URL = 'lgaccount.lgsmartthinq:/'
+  THIRD_PART_LOGIN = {
+    'GGL': 'google',
+    'AMZ': 'amazon',
+    'FBK': 'facebook',
+    'APPL': 'apple',
+  }
+
+  # orig
   DATA_ROOT        = 'lgedmRoot'
-  COUNTRY          = 'US'
-  LANGUAGE         = 'en-US'
+  GATEWAY_URL      = 'https://kic.lgthinq.com:46030/api/common/gatewayUriList'
+  SECURITY_KEY     = 'nuts_securitykey'
   SVC_CODE         = 'SVC202'
   CLIENT_ID        = 'LGAO221A02'
   OAUTH_SECRET_KEY = 'c053c2a6ddeb7ad97cb0eed0dcb31cf8'
-  OAUTH_CLIENT_KEY = 'LGAO221A02'
   DATE_FORMAT      = '%a, %d %b %Y %H:%M:%S +0000'
+
+  DEFAULT_COUNTRY = "US"
+  DEFAULT_LANGUAGE = "en-US"
+  DEFAULT_TIMEOUT = 15 # seconds
 
   DEVICE_TYPE = {
     REFRIGERATOR: 101,
@@ -161,7 +190,7 @@ module WIDEQ
   ##
   # Load information about the hosts to use for API interaction.
   def self.gateway_info
-    lgedm_post(GATEWAY_URL, data: { countryCode: COUNTRY, langCode: LANGUAGE })
+    lgedm_post(V2_GATEWAY_URL, data: { countryCode: COUNTRY, langCode: LANGUAGE })
   end
 
   def self.gen_uuid

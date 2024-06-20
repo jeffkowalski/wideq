@@ -2,6 +2,9 @@
 
 This is a Ruby port of the code and concepts found in [sampsyo's wideq Python module](https://github.com/sampsyo/wideq).
 
+See also https://github.com/ollo69/ha-smartthinq-sensors/blob/master/custom_components/smartthinq_sensors/wideq/core_async.py
+more modern Python lib is here: https://github.com/pifou25/wideq
+
 ## Installation
 
 Add this line to your application's Gemfile:
