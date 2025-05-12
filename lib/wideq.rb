@@ -1,46 +1,20 @@
 # frozen_string_literal: true
 
-require 'wideq/version'
 require 'rest-client'
 require 'json'
 require 'securerandom'
 require 'base64'
 require 'addressable/uri'
 require 'addressable/template'
+require 'logger'
+require 'openssl'
+require 'time'
 
-$logger = Logger.new $stdout if $logger.nil?
+$logger = Logger.new($stdout) if $logger.nil?
 $logger.level = Logger::INFO
 
 module WIDEQ
-  # v2
-  V2_API_KEY = 'VGhpblEyLjAgU0VSVklDRQ=='
-  V2_CLIENT_ID = '65260af7e8e6547b51fdccf930097c51eb9885a508d3fddfa9ee6cdec22ae1bd'
-  V2_SVC_PHASE = 'OP'
-  V2_APP_LEVEL = 'PRD'
-  V2_APP_OS = 'LINUX'
-  V2_APP_TYPE = 'NUTS'
-  V2_APP_VER = '3.0.1700'
-
-  # new
-  V2_GATEWAY_URL = 'https://route.lgthinq.com:46030/v1/service/application/gateway-uri'
-  V2_AUTH_PATH = '/oauth/1.0/oauth2/token'
-  V2_USER_INFO = '/users/profile'
-  V2_EMP_SESS_URL = 'https://emp-oauth.lgecloud.com/emp/oauth2/token/empsession'
-  OAUTH_LOGIN_HOST = 'us.m.lgaccount.com'
-  OAUTH_LOGIN_PATH = 'login/signIn'
-  OAUTH_REDIRECT_PATH = 'login/iabClose'
-  OAUTH_REDIRECT_URI = "https://kr.m.lgaccount.com/#{OAUTH_REDIRECT_PATH}"
-  APPLICATION_KEY = '6V1V8H2BN5P9ZQGOI5DAQ92YZBDO3EK9' # for spx login
-  OAUTH_CLIENT_KEY = 'LGAO722A02'
-  EMP_REDIRECT_URL = 'lgaccount.lgsmartthinq:/'
-  THIRD_PART_LOGIN = {
-    'GGL': 'google',
-    'AMZ': 'amazon',
-    'FBK': 'facebook',
-    'APPL': 'apple',
-  }
-
-  # orig
+  # Constants needed for API communication
   DATA_ROOT        = 'lgedmRoot'
   GATEWAY_URL      = 'https://kic.lgthinq.com:46030/api/common/gatewayUriList'
   SECURITY_KEY     = 'nuts_securitykey'
@@ -48,11 +22,12 @@ module WIDEQ
   CLIENT_ID        = 'LGAO221A02'
   OAUTH_SECRET_KEY = 'c053c2a6ddeb7ad97cb0eed0dcb31cf8'
   DATE_FORMAT      = '%a, %d %b %Y %H:%M:%S +0000'
+  APPLICATION_KEY  = '6V1V8H2BN5P9ZQGOI5DAQ92YZBDO3EK9'
 
-  DEFAULT_COUNTRY = "US"
-  DEFAULT_LANGUAGE = "en-US"
-  DEFAULT_TIMEOUT = 15 # seconds
+  COUNTRY = "US"
+  LANGUAGE = "en-US"
 
+  # Device types mapping
   DEVICE_TYPE = {
     REFRIGERATOR: 101,
     KIMCHI_REFRIGERATOR: 102,
@@ -65,10 +40,10 @@ module WIDEQ
     MICROWAVE: 302,
     COOKTOP: 303,
     HOOD: 304,
-    AC: 401, # Includes heat pumps, etc., possibly all HVAC devices.
+    AC: 401,
     AIR_PURIFIER: 402,
     DEHUMIDIFIER: 403,
-    ROBOT_KING: 501, # Robotic vacuum cleaner?
+    ROBOT_KING: 501,
     ARCH: 1001,
     MISSG: 3001,
     SENSOR: 3002,
@@ -81,6 +56,7 @@ module WIDEQ
     AIR_SENSOR: 4003
   }.freeze
 
+  # Exception classes
   class APIError < StandardError
     def message
       'An error reported by the API.'
@@ -88,13 +64,13 @@ module WIDEQ
   end
 
   class TokenError < APIError
-    def message
-      'An authentication token was rejected.'
-    end
-
     def initialize(code)
       @code = code
-      super
+      super()
+    end
+
+    def message
+      "An authentication token was rejected with code #{@code}."
     end
   end
 
@@ -111,14 +87,14 @@ module WIDEQ
   end
 
   class MonitorError < APIError
-    def message
-      "Monitoring a device (#{device_id}) failed with code #{code}, possibly because the monitoring session failed and needs to be restarted."
-    end
-
     def initialize(device_id, code)
       @device_id = device_id
       @code = code
       super()
+    end
+
+    def message
+      "Monitoring a device (#{@device_id}) failed with code #{@code}, possibly because the monitoring session failed and needs to be restarted."
     end
   end
 
@@ -148,7 +124,7 @@ module WIDEQ
   # the gateway server data or to start a session.
   def self.lgedm_post(url, data: nil, access_token: nil, session_id: nil)
     headers = {
-      x_thinq_application_key: APP_KEY,
+      x_thinq_application_key: APPLICATION_KEY,
       x_thinq_security_key: SECURITY_KEY,
       accept: 'application/json',
       content_type: 'application/json'
@@ -190,7 +166,7 @@ module WIDEQ
   ##
   # Load information about the hosts to use for API interaction.
   def self.gateway_info
-    lgedm_post(V2_GATEWAY_URL, data: { countryCode: COUNTRY, langCode: LANGUAGE })
+    lgedm_post(GATEWAY_URL, data: { countryCode: COUNTRY, langCode: LANGUAGE })
   end
 
   def self.gen_uuid
@@ -278,7 +254,7 @@ module WIDEQ
     sig = oauth2_signature "#{req_url}\n#{timestamp}", OAUTH_SECRET_KEY
 
     headers = {
-      lgemp_x_app_key: OAUTH_CLIENT_KEY,
+      lgemp_x_app_key: CLIENT_ID,
       lgemp_x_signature: sig,
       lgemp_x_date: timestamp,
       accept: 'application/json',
@@ -354,6 +330,13 @@ module WIDEQ
       new_access_token = WIDEQ.refresh_auth @gateway.oauth_root, @refresh_token
       Auth.new(@gateway, new_access_token, @refresh_token)
     end
+
+    def serialize
+      {
+        access_token: @access_token,
+        refresh_token: @refresh_token
+      }
+    end
   end
 
   class Session
@@ -371,7 +354,7 @@ module WIDEQ
     # request from an active Session.
     def post(path, data = nil)
       url = @auth.gateway.api_root
-      url.chop if url[-1] == '/'
+      url.chop! if url[-1] == '/'
       url += "/#{path}"
       WIDEQ.lgedm_post(url, data: data, access_token: @auth.access_token, session_id: @session_id)
     end
@@ -500,7 +483,7 @@ module WIDEQ
     ##
     # Decode a bytestring that encodes JSON status data.
     def self.decode_json(data)
-      json.loads(data.decode('utf8'))
+      JSON.parse(data.encode('UTF-8'))
     end
 
     ##
@@ -508,7 +491,7 @@ module WIDEQ
     # decoded status result (or None if status is not available).
     def poll_json
       data = poll
-      data.nil? ? nil : decode_json(data)
+      data.nil? ? nil : self.class.decode_json(data)
     end
   end
 
@@ -539,7 +522,7 @@ module WIDEQ
     end
 
     def auth
-      assert False, 'unauthenticated' if @_auth.nil?
+      raise "Unauthenticated" if @_auth.nil?
       @_auth
     end
 
@@ -594,9 +577,7 @@ module WIDEQ
 
       client = Client.new gateway, auth, session
 
-      # if state.has_key? 'model_info'
-      #   client._model_info = state['model_info']
-      # end
+      client._model_info = state['model_info'] if state.key? 'model_info'
 
       client
     end
@@ -640,7 +621,7 @@ module WIDEQ
     # to reload the gateway servers and restart the session.
     def self.from_token(refresh_token)
       client = Client.new
-      client._auth = Auth client.gateway, nil, refresh_token
+      client._auth = Auth.new client.gateway, nil, refresh_token
       client.refresh
       client
     end
@@ -814,7 +795,7 @@ module WIDEQ
     ##
     # Decode a bytestring that encodes JSON status data.
     def decode_monitor_json(data)
-      JSON.parse(data.decode('utf8'))
+      JSON.parse(data.encode('UTF-8'))
     end
 
     ##
@@ -845,8 +826,8 @@ module WIDEQ
 
     ##
     # Set a device's control for `key` to `value`.
-    def _set_control(_key, value)
-      @client.session.set_device_controls @device.id, key: value
+    def _set_control(key, value)
+      @client.session.set_device_controls @device.id, key => value
     end
 
     ##
@@ -854,16 +835,16 @@ module WIDEQ
     # The response is parsed as base64-encoded JSON.
     def _get_config(key)
       data = @client.session.get_device_config @device.id, key
-      JSON.parse(base64.b64decode(data).decode('utf8'))
+      JSON.parse(Base64.decode64(data).encode('UTF-8'))
     end
 
     ##
     # Look up a device's control value.
     def _get_control(key)
-      data = client.session.get_device_config @device.id, key, 'Control'
+      data = @client.session.get_device_config @device.id, key, 'Control'
 
       # The response comes in a funky key/value format: "(key:value)".
-      _ignore, value = data[1..-1].split(':')
+      _ignore, value = data[1..-2].split(':')
       value
     end
   end
