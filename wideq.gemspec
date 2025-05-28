@@ -25,12 +25,13 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   spec.add_dependency 'addressable', '~> 2.8'
+  spec.add_dependency 'base64', '~> 0.2'
   spec.add_dependency 'json', '~> 2.6'
   spec.add_dependency 'rest-client', '~> 2.1'
 
-  spec.add_development_dependency 'bundler', '>= 1.17'
+  spec.add_development_dependency 'bundler', '~> 2.0'
   spec.add_development_dependency 'rake', '~> 13.0'
   spec.add_development_dependency 'rspec', '~> 3.12'
 
-  spec.required_ruby_version = '>= 2.5.0'
+  spec.required_ruby_version = '>= 3.2.2'
 end
